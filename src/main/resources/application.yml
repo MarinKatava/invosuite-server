@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: invoisuite-server
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/FREEPDB1}
+    username: ${DB_USERNAME:invoisuite}
+    password: ${DB_PASSWORD:invoisuite}
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    open-in-view: false
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+invoisuite:
+  jwt:
+    secret: ${JWT_SECRET:change-this-development-only-secret-key-please-32bytes+}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:replace-with-your-google-oauth-web-client-id.apps.googleusercontent.com}

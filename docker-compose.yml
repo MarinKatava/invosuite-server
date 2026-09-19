@@ -1,0 +1,37 @@
+services:
+  db:
+    image: gvenzl/oracle-free:23-slim
+    container_name: invoisuite-db
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-oracle_root_pw}
+      APP_USER: ${DB_USERNAME:-invoisuite}
+      APP_USER_PASSWORD: ${DB_PASSWORD:-invoisuite}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  backend:
+    build: .
+    container_name: invoisuite-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:oracle:thin:@db:1521/FREEPDB1
+      DB_USERNAME: ${DB_USERNAME:-invoisuite}
+      DB_PASSWORD: ${DB_PASSWORD:-invoisuite}
+      JWT_SECRET: ${JWT_SECRET:-change-this-development-only-secret-key-please-32bytes+}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-replace-with-your-google-oauth-web-client-id.apps.googleusercontent.com}
+    ports:
+      - "8080:8080"
+
+volumes:
+  oracle-data:

@@ -1,0 +1,24 @@
+# Overrides src/main/resources/application.yml on the TEST classpath only
+# (Maven puts test-classes ahead of classes), so `mvn test` runs fully
+# offline against H2 in Oracle-compatibility mode instead of needing a real
+# Oracle instance. The same Liquibase changelog (portable column types)
+# applies unmodified to both.
+spring:
+  datasource:
+    url: jdbc:h2:mem:invoisuite;DB_CLOSE_DELAY=-1;MODE=Oracle
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: true
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+invoisuite:
+  jwt:
+    secret: test-only-secret-key-not-used-anywhere-else-32bytes+
+    expiration-minutes: 1440
+  google:
+    client-id: test-client-id

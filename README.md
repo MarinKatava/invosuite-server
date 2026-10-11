@@ -69,9 +69,52 @@ Set these environment variables in production:
   Console. The Android app requests an ID token using this same client ID
   (see the Android project's README), and the backend validates that the
   token's `aud` claim matches it.
+- `ENCRYPTION_KEY` — encrypts stored third-party credentials (Odoo API keys) with
+  AES-256-GCM. Use a long random value and **keep it stable**: changing it makes
+  already-stored credentials unreadable (users would have to re-enter them).
+- `ALLOW_PRIVATE_HOSTS`, `ALLOW_INSECURE_HTTP` — both default to `false`. Set to `true`
+  **for local development only** so the server may call an Odoo on `localhost`/a LAN
+  address over plain http (see "Time tracking imports" below).
 - `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` — Oracle JDBC URL and credentials,
   e.g. `jdbc:oracle:thin:@db:1521/FREEPDB1` (this is set automatically by
   `docker-compose.yml`)
+
+## Time tracking imports (Odoo and similar platforms)
+
+Each user can connect the platforms they log hours in and import those bookings.
+The credentials live on the server (the Android app only configures them and triggers
+imports), encrypted at rest and never returned by the API.
+
+- A **connection** (`/api/integrations`) belongs to the user and says: which platform and
+  server, which credentials, which of the user's **companies** the hours are booked to,
+  optionally which **client** newly discovered projects belong to, whether to import only
+  the user's own bookings, how many days back to import, and a default hourly rate.
+- **Import** (`POST /api/integrations/sync`, or `/{id}/sync` for one connection) fetches the
+  bookings and stores them as *time entries*. It is idempotent: re-importing never duplicates,
+  edits in the source system update unbilled entries, bookings deleted there disappear here
+  (unless already billed), and zero-hour placeholder lines are skipped. Projects are matched
+  by name and created automatically if new.
+- **Billing**: `GET /api/companies/{id}/time-entries/summary?clientId=&from=&to=` returns the
+  unbilled hours per project as ready-made invoice lines. Saving an invoice with those lines'
+  `timeEntryIds` marks the hours as billed, so they cannot be billed twice; editing or deleting
+  the invoice releases/keeps them consistently. Billed entries are never changed by later imports.
+- **Providers** implement `TimeTrackingProvider` (`integration/` package). Only **Odoo** ships
+  today: timesheet lines (`account.analytic.line`) via either the **JSON-2 API** (Odoo 19+,
+  API key as bearer token) or the **legacy JSON-RPC API** (older versions, login + password or
+  API key). Verified against Odoo 19.0 with both APIs; older versions use the same
+  well-established JSON-RPC protocol but were not run here.
+
+Because users supply the URLs the server calls, outbound requests are restricted: https only,
+no credentials/query in the URL, no loopback/private/link-local/metadata addresses, redirects
+not followed, short timeouts. (Known limit: the host name is resolved once for the check and again
+by the HTTP client, so a DNS-rebinding attacker controlling a domain could still race it.)
+
+To try it locally against an Odoo on your machine, start the stack with the relaxed flags and
+point the connection at `http://host.docker.internal:8069`:
+
+```bash
+ALLOW_PRIVATE_HOSTS=true ALLOW_INSECURE_HTTP=true docker compose up --build
+```
 
 ## API overview
 
@@ -85,7 +128,12 @@ Set these environment variables in production:
 - `PATCH /api/companies/{companyId}/invoices/{id}/status` — body `{ "status": "SENT" }`
 - `GET /api/companies/{companyId}/invoices/{id}/pdf`
 - `GET /api/companies/{companyId}/invoices/{id}/xlsx`
-- `GET /api/meta/currencies`, `/api/meta/units` — dropdown data for the app
+- `GET/POST/PUT/DELETE /api/integrations[/{id}]` — the signed-in user's time-tracking connections
+- `POST /api/integrations/test[?connectionId=]` — test unsaved settings (a blank API key reuses the stored one)
+- `POST /api/integrations/{id}/sync`, `POST /api/integrations/sync[?companyId=]` — import time bookings
+- `GET /api/companies/{companyId}/time-entries[?from=&to=&invoiced=]`
+- `GET /api/companies/{companyId}/time-entries/summary?clientId=&from=&to=` — unbilled hours per project
+- `GET /api/meta/currencies`, `/api/meta/units`, `/api/meta/integration-providers` — dropdown data for the app
 
 All endpoints except `/api/auth/**` and `/api/meta/**` require
 `Authorization: Bearer <token>`. Companies, clients, projects and invoices

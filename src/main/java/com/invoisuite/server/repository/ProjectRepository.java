@@ -10,4 +10,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByCompanyIdOrderByNameAsc(Long companyId);
 
     Optional<Project> findByIdAndCompanyId(Long id, Long companyId);
+
+    Optional<Project> findFirstByCompanyIdAndNameIgnoreCase(Long companyId, String name);
 }

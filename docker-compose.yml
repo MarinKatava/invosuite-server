@@ -29,6 +29,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-invoisuite}
       JWT_SECRET: ${JWT_SECRET:-change-this-development-only-secret-key-please-32bytes+}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-this-development-only-encryption-key}
+      # Local development only: lets the server call Odoo instances on private/http addresses.
+      ALLOW_PRIVATE_HOSTS: ${ALLOW_PRIVATE_HOSTS:-false}
+      ALLOW_INSECURE_HTTP: ${ALLOW_INSECURE_HTTP:-false}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-replace-with-your-google-oauth-web-client-id.apps.googleusercontent.com}
     ports:
       - "8080:8080"

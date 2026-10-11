@@ -26,21 +26,21 @@ public class InvoicePdfService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
-    private static final String ACCENT = "#4338CA";
-    private static final String ACCENT_LIGHT = "#EEF2FF";
-    private static final String TEXT_PRIMARY = "#111827";
-    private static final String TEXT_SECONDARY = "#6B7280";
-    private static final String BORDER = "#E5E7EB";
-    private static final String STRIPE = "#F9FAFB";
+    private static final String ACCENT = "#0F766E";
+    private static final String ACCENT_LIGHT = "#D5EFEA";
+    private static final String TEXT_PRIMARY = "#14232A";
+    private static final String TEXT_SECONDARY = "#5C6E6C";
+    private static final String BORDER = "#DCE6E4";
+    private static final String STRIPE = "#F4F8F7";
 
     private static final String STYLE = """
             @page { margin: 0; }
             * { box-sizing: border-box; }
             body { font-family: Helvetica, Arial, sans-serif; font-size: 10.5px; color: %TEXT_PRIMARY%; margin: 0; }
-            .topbar { height: 10px; background: %ACCENT%; width: 100%%; }
+            .topbar { height: 10px; background: %ACCENT%; width: 100%; }
             .page { padding: 28px 40px 40px 40px; }
 
-            table.layout { width: 100%%; border-collapse: collapse; }
+            table.layout { width: 100%; border-collapse: collapse; }
             table.layout td { vertical-align: top; padding: 0; border: none; }
 
             .header-row td { padding-bottom: 22px; }
@@ -60,7 +60,7 @@ public class InvoicePdfService {
             .meta-row .k { color: %TEXT_SECONDARY%; }
             .meta-row .v { font-weight: bold; float: right; }
 
-            table.items { width: 100%%; border-collapse: collapse; margin-top: 26px; }
+            table.items { width: 100%; border-collapse: collapse; margin-top: 26px; }
             table.items thead th {
                 background: %ACCENT%; color: #FFFFFF; text-align: left;
                 padding: 8px 10px; font-size: 9px; letter-spacing: 0.5px;
@@ -70,7 +70,7 @@ public class InvoicePdfService {
             table.items tbody td.num { text-align: right; }
             table.items tbody tr.odd td { background: %STRIPE%; }
 
-            table.summary { width: 45%%; margin-left: 55%%; margin-top: 16px; border-collapse: collapse; }
+            table.summary { width: 45%; margin-left: 55%; margin-top: 16px; border-collapse: collapse; }
             table.summary td { padding: 5px 0; }
             table.summary td.k { color: %TEXT_SECONDARY%; }
             table.summary td.v { text-align: right; }

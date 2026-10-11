@@ -1,6 +1,7 @@
 package com.invoisuite.server.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.invoisuite.server.common.BadRequestException;
 import com.invoisuite.server.common.ResourceNotFoundException;
 import com.invoisuite.server.domain.Client;
 import com.invoisuite.server.domain.Company;
@@ -8,12 +9,14 @@ import com.invoisuite.server.domain.Invoice;
 import com.invoisuite.server.domain.InvoiceItem;
 import com.invoisuite.server.domain.InvoiceStatus;
 import com.invoisuite.server.domain.Project;
+import com.invoisuite.server.domain.TimeEntry;
 import com.invoisuite.server.dto.invoice.InvoiceItemRequest;
 import com.invoisuite.server.dto.invoice.InvoiceRequest;
 import com.invoisuite.server.dto.invoice.InvoiceResponse;
 import com.invoisuite.server.dto.invoice.InvoiceSummaryResponse;
 import com.invoisuite.server.repository.InvoiceRepository;
 import com.invoisuite.server.repository.ProjectRepository;
+import com.invoisuite.server.repository.TimeEntryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Service;
@@ -21,7 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +38,7 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final ProjectRepository projectRepository;
+    private final TimeEntryRepository timeEntryRepository;
     private final CompanyService companyService;
     private final ClientService clientService;
     private final InvoiceNumberGenerator invoiceNumberGenerator;
@@ -46,7 +54,7 @@ public class InvoiceService {
 
     @Transactional(readOnly = true)
     public InvoiceResponse get(Long companyId, Long invoiceId) {
-        return InvoiceResponse.from(getOwned(companyId, invoiceId));
+        return toResponse(getOwned(companyId, invoiceId));
     }
 
     @Transactional(readOnly = true)
@@ -68,7 +76,9 @@ public class InvoiceService {
                 .build();
 
         applyFields(invoice, company, client, request, companyId);
-        return InvoiceResponse.from(invoiceRepository.save(invoice));
+        Invoice saved = invoiceRepository.saveAndFlush(invoice);
+        linkTimeEntries(saved, request, companyId);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -78,26 +88,65 @@ public class InvoiceService {
         Client client = clientService.getOwned(companyId, request.clientId());
 
         invoice.setClient(client);
+        // Lines are rebuilt from scratch, so hours billed on the old lines are freed and re-linked below.
+        timeEntryRepository.releaseByInvoice(invoiceId);
         applyFields(invoice, company, client, request, companyId);
-        return InvoiceResponse.from(invoice);
+        invoiceRepository.flush();
+        linkTimeEntries(invoice, request, companyId);
+        return toResponse(invoice);
     }
 
     @Transactional
     public InvoiceResponse updateStatus(Long companyId, Long invoiceId, InvoiceStatus status) {
         Invoice invoice = getOwned(companyId, invoiceId);
         invoice.setStatus(status);
-        return InvoiceResponse.from(invoice);
+        return toResponse(invoice);
     }
 
     @Transactional
     public void delete(Long companyId, Long invoiceId) {
-        invoiceRepository.delete(getOwned(companyId, invoiceId));
+        Invoice invoice = getOwned(companyId, invoiceId);
+        timeEntryRepository.releaseByInvoice(invoiceId);
+        invoiceRepository.delete(invoice);
     }
 
     @Transactional(readOnly = true)
     public String suggestNextNumber(Long companyId, java.time.LocalDate issueDate) {
         companyService.getOwned(companyId);
         return invoiceNumberGenerator.suggestFor(companyId, issueDate);
+    }
+
+    /** Marks the imported time entries behind each line as billed, refusing hours that are already billed elsewhere. */
+    private void linkTimeEntries(Invoice invoice, InvoiceRequest request, Long companyId) {
+        List<InvoiceItem> items = invoice.getItems();
+        for (int i = 0; i < items.size(); i++) {
+            List<Long> ids = request.items().get(i).timeEntryIds();
+            if (ids == null || ids.isEmpty()) {
+                continue;
+            }
+            List<Long> distinct = ids.stream().distinct().toList();
+            List<TimeEntry> entries = timeEntryRepository.findAllByIdInAndCompanyId(distinct, companyId);
+            if (entries.size() != distinct.size()) {
+                throw new BadRequestException("Line " + (i + 1) + " references time entries that do not exist");
+            }
+            for (TimeEntry entry : entries) {
+                if (entry.getInvoiceItem() != null) {
+                    throw new BadRequestException("Time entry " + entry.getId() + " is already billed on another invoice");
+                }
+                entry.setInvoiceItem(items.get(i));
+            }
+        }
+    }
+
+    private InvoiceResponse toResponse(Invoice invoice) {
+        List<Long> itemIds = invoice.getItems().stream().map(InvoiceItem::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<Long>> entryIdsByItem = new HashMap<>();
+        if (!itemIds.isEmpty()) {
+            for (TimeEntry entry : timeEntryRepository.findByInvoiceItemIdIn(itemIds)) {
+                entryIdsByItem.computeIfAbsent(entry.getInvoiceItem().getId(), k -> new ArrayList<>()).add(entry.getId());
+            }
+        }
+        return InvoiceResponse.from(invoice, entryIdsByItem);
     }
 
     @SneakyThrows

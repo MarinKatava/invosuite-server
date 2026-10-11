@@ -7,6 +7,7 @@ import com.invoisuite.server.domain.InvoiceStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public record InvoiceResponse(
         Long id,
@@ -30,7 +31,7 @@ public record InvoiceResponse(
         BigDecimal total,
         List<InvoiceItemResponse> items
 ) {
-    public static InvoiceResponse from(Invoice inv) {
+    public static InvoiceResponse from(Invoice inv, Map<Long, List<Long>> timeEntryIdsByItem) {
         return new InvoiceResponse(
                 inv.getId(),
                 inv.getCompany().getId(),
@@ -51,6 +52,8 @@ public record InvoiceResponse(
                 inv.getNetTotal(),
                 inv.getVatAmount(),
                 inv.getTotal(),
-                inv.getItems().stream().map(InvoiceItemResponse::from).toList());
+                inv.getItems().stream()
+                        .map(i -> InvoiceItemResponse.from(i, timeEntryIdsByItem.get(i.getId())))
+                        .toList());
     }
 }

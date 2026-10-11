@@ -3,6 +3,7 @@ package com.invoisuite.server.dto.invoice;
 import com.invoisuite.server.domain.InvoiceItem;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record InvoiceItemResponse(
         Long id,
@@ -11,9 +12,10 @@ public record InvoiceItemResponse(
         String unit,
         BigDecimal quantity,
         BigDecimal unitPrice,
-        BigDecimal lineTotal
+        BigDecimal lineTotal,
+        List<Long> timeEntryIds
 ) {
-    public static InvoiceItemResponse from(InvoiceItem item) {
+    public static InvoiceItemResponse from(InvoiceItem item, List<Long> timeEntryIds) {
         return new InvoiceItemResponse(
                 item.getId(),
                 item.getProject() != null ? item.getProject().getId() : null,
@@ -21,6 +23,7 @@ public record InvoiceItemResponse(
                 item.getUnit(),
                 item.getQuantity(),
                 item.getUnitPrice(),
-                item.getLineTotal());
+                item.getLineTotal(),
+                timeEntryIds != null ? timeEntryIds : List.of());
     }
 }

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.26.xsd">
+
+    <!-- Same conventions as 001: portable types, object names <= 28 chars (Oracle). -->
+
+    <changeSet id="007-integration-connections" author="invoisuite">
+        <createTable tableName="integration_connections">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_integr_conn"/>
+            </column>
+            <column name="owner_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_integr_conn_owner"
+                             references="users(id)" deleteCascade="true"/>
+            </column>
+            <column name="company_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_integr_conn_company"
+                             references="companies(id)" deleteCascade="true"/>
+            </column>
+            <column name="client_id" type="BIGINT"/>
+            <column name="provider" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="base_url" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="db_name" type="VARCHAR(255)"/>
+            <column name="username" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="api_key_encrypted" type="VARCHAR(1000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="api_mode" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="only_mine" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lookback_days" type="INT" defaultValueNumeric="45">
+                <constraints nullable="false"/>
+            </column>
+            <column name="default_hourly_rate" type="DECIMAL(12,2)"/>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_sync_at" type="TIMESTAMP"/>
+            <column name="last_sync_status" type="VARCHAR(20)"/>
+            <column name="last_sync_message" type="VARCHAR(1000)"/>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="integration_connections" baseColumnNames="client_id"
+                                  constraintName="fk_integr_conn_client"
+                                  referencedTableName="clients" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+        <createIndex tableName="integration_connections" indexName="idx_integr_conn_owner">
+            <column name="owner_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="008-time-entries" author="invoisuite">
+        <createTable tableName="time_entries">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_time_entries"/>
+            </column>
+            <column name="company_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_time_entries_company"
+                             references="companies(id)" deleteCascade="true"/>
+            </column>
+            <column name="connection_id" type="BIGINT"/>
+            <column name="project_id" type="BIGINT"/>
+            <column name="project_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="external_id" type="VARCHAR(100)"/>
+            <column name="work_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="hours" type="DECIMAL(10,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(2000)"/>
+            <column name="invoice_item_id" type="BIGINT"/>
+            <column name="imported_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="time_entries" baseColumnNames="connection_id"
+                                  constraintName="fk_time_entries_conn"
+                                  referencedTableName="integration_connections" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+        <addForeignKeyConstraint baseTableName="time_entries" baseColumnNames="project_id"
+                                  constraintName="fk_time_entries_project"
+                                  referencedTableName="projects" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+        <addForeignKeyConstraint baseTableName="time_entries" baseColumnNames="invoice_item_id"
+                                  constraintName="fk_time_entries_item"
+                                  referencedTableName="invoice_items" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+        <!-- Both columns are nulled together when a connection is removed, which keeps
+             Oracle's composite-unique semantics (all-NULL keys are not indexed) happy. -->
+        <addUniqueConstraint tableName="time_entries" columnNames="connection_id, external_id"
+                              constraintName="uk_time_entries_ext"/>
+        <createIndex tableName="time_entries" indexName="idx_time_entries_comp_date">
+            <column name="company_id"/>
+            <column name="work_date"/>
+        </createIndex>
+        <createIndex tableName="time_entries" indexName="idx_time_entries_item">
+            <column name="invoice_item_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

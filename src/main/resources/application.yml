@@ -25,3 +25,11 @@ invoisuite:
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
   google:
     client-id: ${GOOGLE_CLIENT_ID:replace-with-your-google-oauth-web-client-id.apps.googleusercontent.com}
+  security:
+    # Encrypts stored third-party credentials (e.g. Odoo API keys). Use a long random value
+    # in production and keep it stable: changing it makes stored credentials unreadable.
+    encryption-key: ${ENCRYPTION_KEY:change-this-development-only-encryption-key}
+  integrations:
+    # Both default to false: only public https servers may be contacted. Enable for local dev only.
+    allow-private-hosts: ${ALLOW_PRIVATE_HOSTS:false}
+    allow-insecure-http: ${ALLOW_INSECURE_HTTP:false}

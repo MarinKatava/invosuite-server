@@ -22,3 +22,8 @@ invoisuite:
     expiration-minutes: 1440
   google:
     client-id: test-client-id
+  security:
+    encryption-key: test-only-encryption-key
+  integrations:
+    allow-private-hosts: true
+    allow-insecure-http: true

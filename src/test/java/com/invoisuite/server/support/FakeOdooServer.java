@@ -20,6 +20,8 @@ public class FakeOdooServer implements AutoCloseable {
     public static final String LOGIN = "freelancer@example.com";
     public static final String SECRET = "s3cret-key";
     public static final int MY_UID = 7;
+    public static final String PASSWORD = "my-login-password";
+    private static final String SESSION_ID = "sess-abc123";
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -34,6 +36,8 @@ public class FakeOdooServer implements AutoCloseable {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/jsonrpc", this::handleJsonRpc);
         server.createContext("/json/2/", this::handleJson2);
+        server.createContext("/web/session/authenticate", this::handleSessionAuthenticate);
+        server.createContext("/web/dataset/call_kw/", this::handleCallKw);
         server.start();
     }
 
@@ -81,6 +85,35 @@ public class FakeOdooServer implements AutoCloseable {
         ObjectNode error = JSON.createObjectNode().put("code", 200).put("message", "Odoo Server Error");
         error.set("data", JSON.createObjectNode().put("name", "odoo.exceptions.AccessDenied").put("message", message));
         return error;
+    }
+
+    // ---- web session (login + password) ----
+    private void handleSessionAuthenticate(HttpExchange ex) throws IOException {
+        JsonNode params = readBody(ex).path("params");
+        ObjectNode response = JSON.createObjectNode().put("jsonrpc", "2.0").put("id", 1);
+        boolean ok = params.path("login").asText().equals(LOGIN) && params.path("password").asText().equals(PASSWORD);
+        if (ok) {
+            response.set("result", JSON.createObjectNode().put("uid", MY_UID));
+            ex.getResponseHeaders().add("Set-Cookie", "session_id=" + SESSION_ID + "; Expires=Fri, 01-Jan-2100 00:00:00 GMT; Max-Age=604800; HttpOnly; Path=/");
+        } else {
+            // Odoo answers a failed login with 200 and uid = false
+            response.set("result", JSON.createObjectNode().put("uid", false));
+        }
+        reply(ex, 200, response);
+    }
+
+    private void handleCallKw(HttpExchange ex) throws IOException {
+        ObjectNode response = JSON.createObjectNode().put("jsonrpc", "2.0").put("id", 1);
+        String cookie = ex.getRequestHeaders().getFirst("Cookie");
+        JsonNode params = readBody(ex).path("params");
+        if (cookie == null || !cookie.contains("session_id=" + SESSION_ID)) {
+            ObjectNode error = JSON.createObjectNode().put("code", 100).put("message", "Odoo Session Expired");
+            error.set("data", JSON.createObjectNode().put("message", "Session expired"));
+            response.set("error", error);
+        } else {
+            response.set("result", searchRead(params.path("args").path(0), params.path("kwargs")));
+        }
+        reply(ex, 200, response);
     }
 
     // ---- JSON-2 ----

@@ -3,9 +3,12 @@ package com.invoisuite.server.integration.odoo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.invoisuite.server.domain.IntegrationConnection;
 import com.invoisuite.server.domain.IntegrationProvider;
-import com.invoisuite.server.domain.OdooApiMode;
-import com.invoisuite.server.integration.*;
-import lombok.RequiredArgsConstructor;
+import com.invoisuite.server.integration.ConnectionTestResult;
+import com.invoisuite.server.integration.ExternalTimeEntry;
+import com.invoisuite.server.integration.IntegrationException;
+import com.invoisuite.server.integration.OutboundUrlValidator;
+import com.invoisuite.server.integration.TimeTrackingProvider;
+
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -13,6 +16,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+
+import lombok.RequiredArgsConstructor;
 
 /** Imports Odoo timesheet lines ({@code account.analytic.line} with a project) as time entries. */
 @Component
@@ -77,9 +82,11 @@ public class OdooTimeTrackingProvider implements TimeTrackingProvider {
 
     private OdooTransport transport(IntegrationConnection c) {
         String baseUrl = urlValidator.validate(c.getBaseUrl());
-        return c.getApiMode() == OdooApiMode.JSON2
-                ? new OdooJson2Transport(integrationRestClient, baseUrl, c.getDbName(), c.getApiKey())
-                : new OdooJsonRpcTransport(integrationRestClient, baseUrl, c.getDbName(), c.getUsername(), c.getApiKey());
+        return switch (c.getApiMode()) {
+            case JSON2 -> new OdooJson2Transport(integrationRestClient, baseUrl, c.getDbName(), c.getApiKey());
+            case JSONRPC -> new OdooJsonRpcTransport(integrationRestClient, baseUrl, c.getDbName(), c.getUsername(), c.getApiKey());
+            case SESSION -> new OdooSessionTransport(integrationRestClient, baseUrl, c.getDbName(), c.getUsername(), c.getApiKey());
+        };
     }
 
     private ExternalTimeEntry toEntry(JsonNode row) {

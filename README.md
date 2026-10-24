@@ -99,10 +99,12 @@ imports), encrypted at rest and never returned by the API.
   `timeEntryIds` marks the hours as billed, so they cannot be billed twice; editing or deleting
   the invoice releases/keeps them consistently. Billed entries are never changed by later imports.
 - **Providers** implement `TimeTrackingProvider` (`integration/` package). Only **Odoo** ships
-  today: timesheet lines (`account.analytic.line`) via either the **JSON-2 API** (Odoo 19+,
-  API key as bearer token) or the **legacy JSON-RPC API** (older versions, login + password or
-  API key). Verified against Odoo 19.0 with both APIs; older versions use the same
-  well-established JSON-RPC protocol but were not run here.
+  today: timesheet lines (`account.analytic.line`) with three login methods (`apiMode`):
+  **`SESSION`** — the user's ordinary Odoo login + password, via `/web/session/authenticate`
+  (any recent version; accounts with two-factor auth need an API key instead);
+  **`JSON2`** — API key as bearer token (Odoo 19+); **`JSONRPC`** — legacy `/jsonrpc`
+  (login + password or API key). JSON-2 and JSON-RPC were verified against Odoo 19.0; `SESSION`
+  is covered by tests against a fake Odoo server but not yet run against a real instance.
 
 Because users supply the URLs the server calls, outbound requests are restricted: https only,
 no credentials/query in the URL, no loopback/private/link-local/metadata addresses, redirects

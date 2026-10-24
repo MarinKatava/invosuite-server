@@ -4,7 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.invoisuite.server.integration.IntegrationException;
+
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
@@ -19,6 +22,11 @@ final class OdooRpcSupport {
     }
 
     static JsonNode post(RestClient client, String url, Map<String, String> headers, Object body) {
+        return postForEntity(client, url, headers, body).getBody();
+    }
+
+    /** Like {@link #post} but also exposes the response headers (needed for the session cookie). */
+    static ResponseEntity<JsonNode> postForEntity(RestClient client, String url, Map<String, String> headers, Object body) {
         // Serialised up front so a Content-Length is sent. Streaming the object would use chunked
         // transfer encoding, which Odoo does not read: it sees an empty body and runs the call with
         // no arguments (e.g. search_read over every record, ignoring the domain).
@@ -29,19 +37,19 @@ final class OdooRpcSupport {
             throw new IntegrationException("Could not build the request for Odoo", e);
         }
         try {
-            JsonNode response = client.post()
+            ResponseEntity<JsonNode> response = client.post()
                     .uri(url)
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
                     .headers(h -> headers.forEach(h::set))
                     .body(payload)
                     .retrieve()
-                    .onStatus(status -> status.isError(), (request, res) -> {
+                    .onStatus(HttpStatusCode::isError, (request, res) -> {
                         throw new IntegrationException(describeHttpError(res.getStatusCode().value(),
                                 new String(res.getBody().readAllBytes())));
                     })
-                    .body(JsonNode.class);
-            if (response == null) {
+                    .toEntity(JsonNode.class);
+            if (response.getBody() == null) {
                 throw new IntegrationException("Odoo returned an empty response");
             }
             return response;

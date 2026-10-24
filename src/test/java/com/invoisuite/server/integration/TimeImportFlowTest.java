@@ -103,6 +103,24 @@ class TimeImportFlowTest {
     }
 
     @Test
+    void loginAndPasswordWorkWithoutApiKey() throws Exception {
+        long id = createConnection("SESSION", FakeOdooServer.PASSWORD);
+        JsonNode result = post("/api/integrations/" + id + "/sync", null);
+        assertTrue(result.get("success").asBoolean(), result.toString());
+        assertEquals(3, result.get("imported").asInt());   // only my bookings, like the other modes
+
+        JsonNode ok = post("/api/integrations/test", connectionBody("SESSION", FakeOdooServer.PASSWORD));
+        assertTrue(ok.get("ok").asBoolean(), ok.toString());
+    }
+
+    @Test
+    void wrongPasswordIsReportedForSessionLogin() throws Exception {
+        JsonNode bad = post("/api/integrations/test", connectionBody("SESSION", "not-my-password"));
+        assertFalse(bad.get("ok").asBoolean());
+        assertTrue(bad.get("message").asText().toLowerCase().contains("password"), bad.toString());
+    }
+
+    @Test
     void badCredentialsAreReportedNotThrown() throws Exception {
         long id = createConnection("JSONRPC", "wrong-password");
         JsonNode result = post("/api/integrations/" + id + "/sync", null);
